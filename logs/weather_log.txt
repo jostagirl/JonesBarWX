@@ -20661,3 +20661,7 @@
 2025-11-14 12:00:03,049 - INFO - \u2139\ufe0f No change in indoor_conditions at 2025-11-14 19:45:14 — skipping insert.
 2025-11-14 12:00:03,052 - INFO - \u2139\ufe0f No change in barometric_conditions at 2025-11-14 19:45:14 — skipping insert.
 2025-11-14 12:00:03,061 - INFO - \u2139\ufe0f No change in network_status at 2025-11-14 19:45:00 — skipping insert.
+2025-11-14 12:05:02,891 - INFO - \u2705 Inserted new data into outdoor_conditions at 2025-11-14 20:00:14
+2025-11-14 12:05:02,894 - INFO - \u2705 Inserted new data into indoor_conditions at 2025-11-14 20:00:14
+2025-11-14 12:05:02,898 - INFO - \u2705 Inserted new data into barometric_conditions at 2025-11-14 20:00:14
+2025-11-14 12:05:02,904 - INFO - \u2705 Inserted new data into network_status at 2025-11-14 20:00:00
