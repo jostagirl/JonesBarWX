@@ -117,6 +117,9 @@ Barometric pressure
 
 All timestamps convert automatically to the configured LOCAL_TIMEZONE.
 
+#### SAMPLE PLOT:
+<img width="1390" height="593" alt="image" src="https://github.com/user-attachments/assets/c45bdc76-2e58-4c02-889d-f22f49d25505" />
+
 ### 🧠 How the Ingestion Works
 
 WeatherLink's JSON payload contains sensor blocks.
