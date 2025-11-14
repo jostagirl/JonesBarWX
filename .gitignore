@@ -1,0 +1,11 @@
+# Ignore environment variables
+.env
+config.py
+
+# Ignore logs
+logs/
+
+# Ignore Python bytecode
+
+
+# Optional: ignore local database files or editor configs
