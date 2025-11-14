@@ -1,0 +1,6 @@
+requests
+pymysql
+cryptography
+
+#In CMD run:
+#    pip install -r C:\Users\Anna\Documents\PythonScripts\requirements.txt
