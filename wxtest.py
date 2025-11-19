@@ -5,6 +5,7 @@ from logging.handlers import TimedRotatingFileHandler
 from datetime import datetime
 from dotenv import load_dotenv
 import os
+import time
 
 # === CONFIGURATION ===
 load_dotenv()
@@ -71,6 +72,18 @@ logger.addHandler(console)
 logger.info("=== Logger started (TimedRotatingFileHandler) ===")
 # ---------------------------------------------------------------------
 
+# === METRIC TRACKING ===
+metrics = {
+    "api_success": 0,
+    "db_success": 0,
+    "insert_outdoor": 0,
+    "insert_indoor": 0,
+    "insert_barometric": 0,
+    "insert_network": 0,
+    "skipped_inserts": 0,
+    "errors": None
+}
+
 # === UTILITY FUNCTIONS ===
 
 def get_sensor_data(sensors, sensor_type):
@@ -95,9 +108,11 @@ def insert_if_changed(cursor, table, timestamp, data_dict):
             VALUES (%s, {placeholders})
         """
         cursor.execute(query, (timestamp,) + values)
-        logging.info(f"✅ Inserted new data into {table} at {timestamp}")
+        logging.info(f"Inserted new data into {table} at {timestamp}")
+        return True
     else:
-        logging.info(f"ℹ️ No change in {table} at {timestamp} — skipping insert.")
+        logging.info(f"No change in {table} at {timestamp} — skipping insert.")
+        return False
 
 def sync_table_schema(cursor, table_name, data_dict):
     cursor.execute(f"SHOW COLUMNS FROM {table_name}")
@@ -123,11 +138,15 @@ def sync_table_schema(cursor, table_name, data_dict):
                 logging.error(f"❌ Failed to add column `{key}` to `{table_name}`: {e}")
 
 # === MAIN SCRIPT ===
+
+start_time = time.time()
+
 try:
     response = requests.get(API_URL, headers=headers)
     response.raise_for_status()
     api_data = response.json()
     sensors = api_data.get('sensors', [])
+    metrics['api_success'] = 1
 
     outdoor = get_sensor_data(sensors, 43)
     indoor = get_sensor_data(sensors, 243)
@@ -136,23 +155,70 @@ try:
 
     with pymysql.connect(host=DB_HOST, user=DB_USER, password=DB_PASS, database=DB_NAME) as connection:
         with connection.cursor() as cursor:
+            
+            # outdoor
             if outdoor:
                 sync_table_schema(cursor, 'outdoor_conditions', outdoor)
-                insert_if_changed(cursor, 'outdoor_conditions', datetime.utcfromtimestamp(outdoor['ts']), outdoor)
+                if insert_if_changed(cursor, 'outdoor_conditions', datetime.utcfromtimestamp(outdoor['ts']), outdoor):
+                    metrics["insert_outdoor"] = 1
+                else:
+                    metrics["skipped_inserts"] += 1
 
+            # indoor
             if indoor:
                 sync_table_schema(cursor, 'indoor_conditions', indoor)
-                insert_if_changed(cursor, 'indoor_conditions', datetime.utcfromtimestamp(indoor['ts']), indoor)
+                if insert_if_changed(cursor, 'indoor_conditions', datetime.utcfromtimestamp(indoor['ts']), indoor):
+                    metrics["insert_indoor"] = 1
+                else:
+                    metrics["skipped_inserts"] += 1
 
+            # baro
             if baro:
                 sync_table_schema(cursor, 'barometric_conditions', baro)
-                insert_if_changed(cursor, 'barometric_conditions', datetime.utcfromtimestamp(baro['ts']), baro)
+                if insert_if_changed(cursor, 'barometric_conditions', datetime.utcfromtimestamp(baro['ts']), baro):
+                    metrics["insert_barometric"] = 1
+                else:
+                    metrics["skipped_inserts"] += 1
 
+            # network
             if network:
                 sync_table_schema(cursor, 'network_status', network)
-                insert_if_changed(cursor, 'network_status', datetime.utcfromtimestamp(network['ts']), network)
+                if insert_if_changed(cursor, 'network_status', datetime.utcfromtimestamp(network['ts']), network):
+                    metrics["insert_network"] = 1
+                else:
+                    metrics["skipped_inserts"] += 1
 
+            metrics["db_success"] = 1
         connection.commit()
 
 except Exception as e:
-    logging.error(f"❌ Error: {e}")
+    metrics["errors"] = str(e)[:250]
+    logging.error(f"Error: {e}")
+
+finally:
+    # duration_ms = int((time.time() - start_time) * 1000)
+    timestamp = datetime.utcnow()
+
+    try:
+        with pymysql.connect(host=DB_HOST, user=DB_USER, password=DB_PASS, database=DB_NAME) as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO system_health 
+                    (timestamp_utc, api_success, db_success, insert_outdoor,
+                     insert_indoor, insert_barometric, insert_network, skipped_inserts,
+                     errors)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                """, (
+                    timestamp,
+                    metrics["api_success"],
+                    metrics["db_success"],
+                    metrics["insert_outdoor"],
+                    metrics["insert_indoor"],
+                    metrics["insert_barometric"],
+                    metrics["insert_network"],
+                    metrics["skipped_inserts"],
+                    metrics["errors"]
+                ))
+            conn.commit()
+    except Exception as e2:
+        logging.error(f"Failed to write to system_health table: {e2}")
