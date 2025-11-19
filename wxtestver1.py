@@ -4,17 +4,17 @@ import logging
 from datetime import datetime
 
 # === API CONFIG ===
-API_KEY = 'xfw2kddy2p6lo7thideyoq12lxqov5om'
-API_SECRET = 'ia1ieetrht76zpzbmzvfva0dzqgsm3cg'
-STATION_ID = '5b32a69b-88e9-4867-8067-2f4bb11c145d'
+API_KEY = 'your key'
+API_SECRET = 'your secret'
+STATION_ID = 'your station'
 url = f'https://api.weatherlink.com/v2/current/{STATION_ID}?api-key={API_KEY}'
 headers = {'X-Api-Secret': API_SECRET}
 
 # === MYSQL CONFIG ===
 DB_HOST = 'localhost'
-DB_USER = 'weather_user'
-DB_PASS = 'wx'
-DB_NAME = 'weather_data'
+DB_USER = 'user'
+DB_PASS = 'pass'
+DB_NAME = 'dbname'
 
 # === LOGGING SETUP ===
 logging.basicConfig(
