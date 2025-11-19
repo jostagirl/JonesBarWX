@@ -1,6 +1,7 @@
 import pymysql
 import requests
 import logging
+from logging.handlers import TimedRotatingFileHandler
 from datetime import datetime
 from dotenv import load_dotenv
 import os
@@ -20,10 +21,55 @@ STATION_ID = os.getenv("STATION_ID", "").strip()
 API_URL = f'https://api.weatherlink.com/v2/current/{STATION_ID}?api-key={API_KEY}'
 headers = {'X-Api-Secret': API_SECRET}
 
-LOG_PATH = r'C:\Users\Anna\Projects\WeatherLogger\logs\weather_log.txt'
+#####LOGGING SETUP
 
-logging.basicConfig(filename=LOG_PATH, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+#######DEPRICATED
+# LOG_PATH = r'C:\Users\Anna\Projects\WeatherLogger\logs\weather_log.txt'
+# logging.basicConfig(filename=LOG_PATH, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+#######
 
+# --- logging config (replaces previous logging.basicConfig call) ---
+LOG_DIR = r'C:\Users\Anna\Projects\WeatherLogger\logs'
+LOG_FILENAME = 'weather_log.txt'
+LOG_PATH = os.path.join(LOG_DIR, LOG_FILENAME)
+
+# make sure directory exists
+os.makedirs(LOG_DIR, exist_ok=True)
+
+logger = logging.getLogger()           # root logger (same as logging.* calls)
+logger.setLevel(logging.INFO)
+
+# Remove any existing handlers to avoid duplicate logs if the module is reloaded
+if logger.handlers:
+    for h in logger.handlers[:]:
+        logger.removeHandler(h)
+
+# Timed rotating handler: rotate at midnight every day, keep 7 backups.
+# Using utc=True makes rotation schedule independent of local TZ (good for consistent timestamps).
+handler = TimedRotatingFileHandler(
+    filename=LOG_PATH,
+    when='midnight',     # rotate at midnight 
+    interval=1,
+    backupCount=7,       # keep last 7 files
+    utc=True,            # rotate based on UTC; set False if you prefer local midnight rotation
+    encoding='utf-8'
+)
+
+# Optional: add a header when opening a new log file
+handler.suffix = "%Y-%m-%d"  # file suffix format used for backups, e.g. weather_log.txt.2025-11-19
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+
+# Also keep a simple stream handler so you can see logs on console while testing
+console = logging.StreamHandler()
+console.setLevel(logging.INFO)
+console.setFormatter(formatter)
+logger.addHandler(console)
+
+# Write a startup line so the log shows that the script started
+logger.info("=== Logger started (TimedRotatingFileHandler) ===")
+# ---------------------------------------------------------------------
 
 # === UTILITY FUNCTIONS ===
 
