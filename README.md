@@ -26,6 +26,8 @@ WeatherLogger/
 ├── data/                     # (optional future use, used for testing)
 ├── logs/
 │   └── weather_log.txt       # runtime logs
+├── legacy/
+│   └── old__run_weather_logger.bat
 ├── .env                      # secrets (NOT committed)
 ├── config.py                 # unused (optional constants)
 ├── requirements.txt
@@ -80,14 +82,23 @@ Manual Run
 ```bash
 python wxtest.py
 ```
-Scheduled Run (Windows Task Scheduler)
+Scheduled Run (Windows Task Scheduler - <b>"WeatherLogger"</b>)
 
-Use the included helper script:
-```cmd
-run_weather_logger.bat
+Configure a New task on a schedule to run every 5 minutes for continuous ingestion.
+**Action:** Start a Program
+
+**Program/Script:** 
 ```
-
-Schedule it to run every 5 minutes for continuous ingestion.
+C:\Python311\python.exe
+```
+**Add args:**
+```
+C:\Users\Anna\Projects\WeatherLogger\wxtest.py
+```
+**Start in:**
+```
+C:\Users\Anna\Projects\WeatherLogger
+```
 
 ### 📝 Logging
 
