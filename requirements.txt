@@ -1,6 +1,8 @@
 requests
 pymysql
 cryptography
+Flask
+Flask-MySQLdb
 
 #In CMD run:
 #    pip install -r C:\Users\Anna\Documents\PythonScripts\requirements.txt
