@@ -1,5 +1,37 @@
 ##PI Migration Branch##
 
+WeatherLogger Windows → Raspberry Pi Migration (Action Summary)
+
+- Reimaged the Raspberry Pi with a clean Raspberry Pi OS install
+
+- Established reliable SSH access to the Pi
+
+- Created a dedicated Git branch (pi-migration) to isolate Pi/Linux work from the Windows baseline
+
+- Installed and started MariaDB on the Raspberry Pi
+
+- Secured MariaDB with local-only access and application-level credentials
+
+- Created the application database (weather_data) on the Pi
+
+- Generated a logical dump of the existing MySQL database on Windows
+
+- Transferred the database dump file to the Raspberry Pi
+
+- Imported historical weather data into MariaDB on the Pi
+
+- Verified database tables, row counts, and timestamp integrity after import
+
+- Cloned the GitHub repository onto the Raspberry Pi
+
+- Switched the Pi working copy to the pi-migration branch
+
+- Created a Python virtual environment on the Pi for application isolation
+
+- Activated and verified the virtual environment
+
+- Began installing Python application dependencies inside the virtual environment
+
 ### WeatherLogger
 
 A Python-based system that collects, stores, and visualizes weather data from my personal Davis WeatherLink station.
