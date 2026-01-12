@@ -32,6 +32,80 @@ WeatherLogger Windows → Raspberry Pi Migration (Action Summary)
 
 - Began installing Python application dependencies inside the virtual environment
 
+### Additional Actions (Post-install failure & recovery)
+
+Observed stalled / failed Python dependency installation during pip install -r requirements.txt
+
+Rebooted the Raspberry Pi to clear package install state and reassess system health
+
+Determined the Pi was in an unknown state: unreachable via SSH, not visible on the network, and showing ambiguous behavior on HDMI
+
+Connected the Pi to a monitor to inspect boot state and confirmed it was running a full desktop GUI OS, which was heavier than required for a headless appliance
+
+Decided to reimage the Pi again to a minimal OS after confirming no irreplaceable state existed on the device
+
+Saved a copy of the existing config.txt (HDMI / diagnostic settings) prior to reflashing for reference and recovery knowledge (ultimately not reused)
+
+Reimaged the Raspberry Pi with Raspberry Pi OS Lite (32-bit, Bookworm) to eliminate GUI overhead and ensure predictable headless behavior
+
+Enabled SSH and Wi-Fi during imaging to allow immediate remote access after first boot
+
+Confirmed successful boot and network connectivity by locating the Pi in the router and connecting via SSH using both hostname and IP
+
+Verified kernel console configuration and login services (tty1, getty) were correctly enabled on the Lite OS
+
+Identified HDMI output as a good troubleshooting tool, neededto do some stuff to enable it onlite OS:
+
+Identified kernel mode-setting (KMS) graphics overlays as the cause of missing HDMI output on the Pi Zero
+
+Disabled KMS overlays to restore reliable HDMI text console output without installing a GUI
+
+Enabled HDMI text console output as a diagnostic fallback on an otherwise headless system
+
+Verified the Pi displays a local text login prompt on HDMI while remaining SSH-first for normal operation
+
+Reinstalled MariaDB on the fresh Raspberry Pi OS Lite system after reimage
+
+Recreated the application database (weather_data) and application database user on the Pi
+
+Re-transferred the historical database dump to the Pi after reimage
+
+Resolved MySQL → MariaDB collation incompatibility and successfully imported historical data
+
+Verified restored data integrity by checking table counts and latest timestamps
+
+Removed temporary database dump files from the Pi after successful import
+
+Re-cloned the GitHub repository onto the Pi after reimage and switched to the pi-migration branch
+
+Recreated the Python virtual environment on the Pi after OS rebuild
+
+Installed required system-level build dependencies (compiler toolchain, SSL, ffi, Python headers) needed for Python packages on ARM
+
+Successfully installed all Python application dependencies inside the virtual environment, including cryptography and Flask stack
+
+Verified .env configuration loading correctly on the Pi
+
+Verified database connectivity from Python within the virtual environment
+
+Updated application logging paths to be Linux-safe and relative to the repository directory
+
+Successfully executed the ingestion script manually on the Pi and confirmed new data writes
+
+Verified correct UTC-based timestamp handling and system time synchronization (NTP active, local timezone set)
+
+Configured secure MySQL Workbench access from Windows to the Pi using an SSH tunnel (no exposed database ports)
+
+Verified live database writes and historical data visibility via MySQL Workbench GUI
+
+Installed tmux on the Pi to support persistent interactive sessions during setup and troubleshooting
+
+Configured a cron job to execute the ingestion script every 5 minutes using the virtual environment Python interpreter
+
+Verified unattended, automated ingestion is running correctly via database health records and timestamps
+
+Achieved a stable, headless Raspberry Pi deployment performing automated weather data ingestion with secure remote observability and recovery paths
+
 ### WeatherLogger
 
 A Python-based system that collects, stores, and visualizes weather data from my personal Davis WeatherLink station.
