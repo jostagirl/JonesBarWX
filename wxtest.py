@@ -4,6 +4,7 @@ import logging
 from logging.handlers import TimedRotatingFileHandler
 from datetime import datetime
 from dotenv import load_dotenv
+from pathlib import Path
 import os
 import time
 
@@ -24,18 +25,13 @@ headers = {'X-Api-Secret': API_SECRET}
 
 #####LOGGING SETUP
 
-#######DEPRICATED
-# LOG_PATH = r'C:\Users\Anna\Projects\WeatherLogger\logs\weather_log.txt'
-# logging.basicConfig(filename=LOG_PATH, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-#######
+# --- logging config ---
+BASE_DIR = Path(__file__).resolve().parent
+LOG_DIR = BASE_DIR / "logs"
+LOG_FILENAME = "weather_log.txt"
+LOG_PATH = LOG_DIR / LOG_FILENAME
 
-# --- logging config (replaces previous logging.basicConfig call) ---
-LOG_DIR = r'C:\Users\Anna\Projects\WeatherLogger\logs'
-LOG_FILENAME = 'weather_log.txt'
-LOG_PATH = os.path.join(LOG_DIR, LOG_FILENAME)
-
-# make sure directory exists
-os.makedirs(LOG_DIR, exist_ok=True)
+LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 logger = logging.getLogger()           # root logger (same as logging.* calls)
 logger.setLevel(logging.INFO)
@@ -48,7 +44,7 @@ if logger.handlers:
 # Timed rotating handler: rotate at midnight every day, keep 7 backups.
 # Using utc=True makes rotation schedule independent of local TZ (good for consistent timestamps).
 handler = TimedRotatingFileHandler(
-    filename=LOG_PATH,
+    filename=str(LOG_PATH),   # str() is optional but safe for older libs
     when='midnight',     # rotate at midnight 
     interval=1,
     backupCount=7,       # keep last 7 files
