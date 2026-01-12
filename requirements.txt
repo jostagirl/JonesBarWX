@@ -1,6 +1,7 @@
 requests
 pymysql
 cryptography
+python-dotenv
 Flask
 Flask-MySQLdb
 
