@@ -14,3 +14,7 @@ mysqlDump/
 # Optional: ignore local database files or editor configs
 #Ignore Other
 .venv/
+
+#sql
+*.sql
+*.sql.gz
