@@ -3,54 +3,135 @@
 This service provides machine-facing JSON endpoints on the local network.
 It will later support generating static files for Tableau Public and accepting local-only ingest from devices.
 
-## Location in repo
+## Host and environment
 
-<pre>
-services/jonesbar_api/
-├── app/
-│   └── main.py
-└── README_API.md
-</pre>
+Hostname:
+- <pre>rapi4</pre>
 
-## Phase 1: FastAPI skeleton (completed)
+Primary user:
+- <pre>pi4</pre>
 
-We stood up a minimal FastAPI service on the Pi 4 and verified it is reachable on the local network.
+Repo root on Pi 4:
+- <pre>/home/pi4/repo/JonesBarWX</pre>
 
-Preferred long-term LAN URL:
+FastAPI service folder (runs from here):
+- <pre>/home/pi4/repo/JonesBarWX/services/jonesbar_api</pre>
+
+FastAPI virtual environment path (used by systemd):
+- <pre>/home/pi4/repo/JonesBarWX/services/jonesbar_api/venv</pre>
+
+FastAPI app entrypoint:
+- <pre>/home/pi4/repo/JonesBarWX/services/jonesbar_api/app/main.py</pre>
+
+Systemd unit file path:
+- <pre>/etc/systemd/system/jonesbar-api.service</pre>
+
+## LAN URLs
+
+Preferred long-term LAN URL (mDNS):
 - <pre>http://rapi4.local:8000</pre>
 
 Fallback if hostname resolution is unavailable:
 - <pre>http://192.168.68.75:8000</pre>
 
-Verified these endpoints load from another device on the same Wi-Fi:
+Verified endpoints:
 - <pre>http://192.168.68.75:8000/health</pre>
 - <pre>http://192.168.68.75:8000/docs</pre>
 - <pre>http://192.168.68.75:8000/redoc</pre>
 
-Manual run command used for the test:
+## Location in repo
+
+Repo-relative:
 
 <pre>
+services/jonesbar_api/
+├── app/
+│   └── main.py
+├── venv/
+├── .gitignore
+└── README_API.md
+</pre>
+
+Absolute paths:
+
+<pre>
+/home/pi4/repo/JonesBarWX/services/jonesbar_api/app/main.py
+/home/pi4/repo/JonesBarWX/services/jonesbar_api/README_API.md
+/home/pi4/repo/JonesBarWX/services/jonesbar_api/.gitignore
+/home/pi4/repo/JonesBarWX/services/jonesbar_api/venv/
+</pre>
+
+## Phase 1: FastAPI skeleton (completed)
+
+Minimal app code is in:
+
+<pre>
+/home/pi4/repo/JonesBarWX/services/jonesbar_api/app/main.py
+</pre>
+
+Manual run command (development test):
+
+<pre>
+cd /home/pi4/repo/JonesBarWX/services/jonesbar_api
+source /home/pi4/repo/JonesBarWX/services/jonesbar_api/venv/bin/activate
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 </pre>
 
+Stop manual run:
+- Ctrl+C
+
 ## Phase 2: systemd service (completed)
 
-The FastAPI service is now managed by systemd and runs continuously.
+Systemd service name:
+- <pre>jonesbar-api.service</pre>
 
-Service name:
-- `jonesbar-api.service`
+Systemd unit file location:
+- <pre>/etc/systemd/system/jonesbar-api.service</pre>
 
-Useful commands:
+Service runs from:
+- <pre>/home/pi4/repo/JonesBarWX/services/jonesbar_api</pre>
+
+Service executable used:
+- <pre>/home/pi4/repo/JonesBarWX/services/jonesbar_api/venv/bin/uvicorn</pre>
+
+Service start command (embedded in systemd unit):
+- <pre>uvicorn app.main:app --host 0.0.0.0 --port 8000</pre>
+
+Useful systemd commands:
 
 <pre>
-sudo systemctl status jonesbar-api
+sudo systemctl status jonesbar-api --no-pager
 sudo systemctl restart jonesbar-api
-sudo journalctl -u jonesbar-api -n 50
+sudo systemctl stop jonesbar-api
+sudo systemctl start jonesbar-api
 </pre>
 
-The service runs directly from the repo path:
+Enable or disable start-on-boot:
+
+<pre>
+sudo systemctl enable jonesbar-api
+sudo systemctl disable jonesbar-api
+</pre>
+
+View logs:
+
+<pre>
+sudo journalctl -u jonesbar-api -n 50 --no-pager
+</pre>
+
+If the unit file is edited, reload systemd:
+
+<pre>
+sudo systemctl daemon-reload
+</pre>
+
+## Notes on paths we intentionally did not use
+
+We created an API folder under <pre>/opt/jonesbar_api</pre> earlier during initial testing.
+We are not using that location for the running service in Model 1.
+
+Source of truth is the repo path:
 
 <pre>
 /home/pi4/repo/JonesBarWX/services/jonesbar_api
 </pre>
-
