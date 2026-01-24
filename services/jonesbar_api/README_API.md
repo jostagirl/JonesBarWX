@@ -33,5 +33,24 @@ Manual run command used for the test:
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 </pre>
 
-Next step:
-- Convert the FastAPI service into an always-on systemd-managed service.
+## Phase 2: systemd service (completed)
+
+The FastAPI service is now managed by systemd and runs continuously.
+
+Service name:
+- `jonesbar-api.service`
+
+Useful commands:
+
+<pre>
+sudo systemctl status jonesbar-api
+sudo systemctl restart jonesbar-api
+sudo journalctl -u jonesbar-api -n 50
+</pre>
+
+The service runs directly from the repo path:
+
+<pre>
+/home/pi4/repo/JonesBarWX/services/jonesbar_api
+</pre>
+
