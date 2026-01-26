@@ -135,3 +135,28 @@ Source of truth is the repo path:
 <pre>
 /home/pi4/repo/JonesBarWX/services/jonesbar_api
 </pre>
+
+## Phase 3: DB-backed endpoint (completed)
+
+A read-only endpoint now returns recent rows from MariaDB.
+
+Endpoint:
+- <pre>GET /api/system_health/recent?limit=5</pre>
+
+Example URLs:
+- <pre>http://rapi4.local:8000/api/system_health/recent?limit=5</pre>
+- <pre>http://192.168.68.75:8000/api/system_health/recent?limit=5</pre>
+
+Implementation files:
+- <pre>/home/pi4/repo/JonesBarWX/services/jonesbar_api/app/main.py</pre>
+- <pre>/home/pi4/repo/JonesBarWX/services/jonesbar_api/app/db.py</pre>
+
+API venv packages added:
+- <pre>python-dotenv</pre>
+- <pre>pymysql</pre>
+
+Notes:
+- After a reboot, your shell is not in any venv until you run:
+  <pre>source /home/pi4/repo/JonesBarWX/services/jonesbar_api/venv/bin/activate</pre>
+- systemd always runs the API using:
+  <pre>/home/pi4/repo/JonesBarWX/services/jonesbar_api/venv/bin/uvicorn</pre>
