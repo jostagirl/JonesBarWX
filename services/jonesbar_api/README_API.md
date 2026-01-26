@@ -61,6 +61,111 @@ Absolute paths:
 /home/pi4/repo/JonesBarWX/services/jonesbar_api/venv/
 </pre>
 
+## System architecture overview
+
+The Jones Bar WX system is intentionally split into independent layers.
+Each layer has a single responsibility and can fail without cascading.
+
+<pre>
+┌───────────────────────────────────────────────────────────────────┐
+│                         External Data Source                       │
+│                                                                   │
+│   Davis WeatherLink API                                            │
+│                                                                   │
+└───────────────┬───────────────────────────────────────────────────┘
+                │
+                │  (every 15 minutes)
+                │
+┌───────────────▼───────────────────────────────────────────────────┐
+│                         Ingestion Layer                            │
+│                                                                   │
+│   cron job                                                         │
+│   Python fetch script                                              │
+│                                                                   │
+│   Flow:                                                           │
+│     Davis API → Python → MariaDB                                  │
+│                                                                   │
+│   Notes:                                                          │
+│   - Always-on                                                     │
+│   - Independent of API and publishing                             │
+│   - Failure here stops new data only                              │
+│                                                                   │
+└───────────────┬───────────────────────────────────────────────────┘
+                │
+                │  (local database reads)
+                │
+┌───────────────▼───────────────────────────────────────────────────┐
+│                         Storage Layer                              │
+│                                                                   │
+│   MariaDB                                                          │
+│                                                                   │
+│   Contains:                                                       │
+│   - raw and processed weather data                                │
+│   - system health tables                                          │
+│                                                                   │
+│   Notes:                                                          │
+│   - Single source of truth                                        │
+│   - Never exposed publicly                                        │
+│                                                                   │
+└───────────────┬───────────────────────────────┬───────────────────┘
+                │                               │
+                │                               │
+                │                               │
+┌───────────────▼───────────────┐   ┌───────────▼───────────────────┐
+│     Local API Layer            │   │     Publishing Layer           │
+│                               │   │                               │
+│   FastAPI (systemd service)   │   │   systemd timer                │
+│                               │   │                               │
+│   Purpose:                    │   │   Runs every 15 minutes        │
+│   - Local-only JSON endpoints │   │                               │
+│   - Validation                │   │   Script:                     │
+│   - Debugging                 │   │     publish_outdoor_conditions │
+│                               │   │                               │
+│   URLs:                       │   │   Flow:                       │
+│     http://rapi4.local:8000   │   │     MariaDB → JSON + CSV       │
+│                               │   │       → git commit + push     │
+│   Notes:                      │   │                               │
+│   - Not public                │   │   Notes:                      │
+│   - No scheduling             │   │   - Stateless                 │
+│   - Safe to stop/start        │   │   - Logs to journalctl         │
+│                               │   │                               │
+└───────────────┬───────────────┘   └───────────┬───────────────────┘
+                │                               │
+                │                               │
+                │                               │
+                │                   (on push to GitHub)
+                │                               │
+┌───────────────▼───────────────────────────────▼───────────────────┐
+│                         Public Hosting Layer                       │
+│                                                                   │
+│   GitHub Pages                                                     │
+│   Cloudflare DNS + HTTPS                                          │
+│                                                                   │
+│   Public URLs:                                                    │
+│     https://data.annabellizzi.com/                                │
+│     /data/outdoor_conditions.json                                 │
+│     /data/outdoor_conditions.csv                                  │
+│                                                                   │
+│   Notes:                                                          │
+│   - Static files only                                             │
+│   - No credentials                                                │
+│   - No Pi exposure                                                │
+│   - Safe for Tableau Public                                       │
+│                                                                   │
+└───────────────────────────────────────────────────────────────────┘
+</pre>
+
+### Design principles captured by this diagram
+
+- The Pi is never exposed to the public internet
+- All credentials remain local
+- Publishing is pull-free and push-only
+- Failures are visible but isolated
+- Local API and public data serve different audiences
+- Everything survives reboots and power loss
+
+This diagram represents the intended steady-state system.
+
 ## Phase 1: FastAPI skeleton (completed)
 
 Minimal app code is in:
