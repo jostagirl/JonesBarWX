@@ -92,11 +92,23 @@ def export_outdoor_conditions_last_7_days():
 
     safe_rows = rows_json_safe(rows)
 
+    latest_row_timestamp_utc = None
+    if safe_rows:
+        # Prefer ISO timestamp string if present
+        latest_row_timestamp_utc = safe_rows[-1].get("timestamp_utc")
+
+        # Fallback: if only epoch seconds exists (field "ts"), convert to ISO UTC
+        if not latest_row_timestamp_utc and safe_rows[-1].get("ts") is not None:
+            latest_row_timestamp_utc = datetime.fromtimestamp(
+                int(safe_rows[-1]["ts"]), tz=timezone.utc
+            ).isoformat().replace("+00:00", "Z")
+
     payload = {
         "dataset": "outdoor_conditions",
         "window": "last_7_days",
         "generated_at_utc": generated_at_utc,
-        "row_count": len(safe_rows),
+        "latest_row_timestamp_utc": latest_row_timestamp_utc,
+	"row_count": len(safe_rows),
         "rows": safe_rows,
     }
 
