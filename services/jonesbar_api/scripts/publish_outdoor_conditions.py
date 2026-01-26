@@ -123,9 +123,6 @@ def git_publish_if_changed(generated_at_utc):
     if not os.path.isdir(os.path.join(PUBLIC_REPO_DIR, ".git")):
         raise RuntimeError(f"Not a git repo: {PUBLIC_REPO_DIR}")
 
-    # Syncbefore pushing
-    run(["git", "pull", "--rebase"], cwd=PUBLIC_REPO_DIR)
-
     # Stage only the two files
     run(["git", "add", "data/outdoor_conditions.json", "data/outdoor_conditions.csv"], cwd=PUBLIC_REPO_DIR)
 
@@ -141,12 +138,18 @@ def git_publish_if_changed(generated_at_utc):
 
 
 def main():
+    # Sync the public repo first (must be clean before rebase)
+    run(["git", "pull", "--rebase"], cwd=PUBLIC_REPO_DIR)
+
+    # Generate the files after we are up to date
     row_count, generated_at_utc = export_outdoor_conditions_last_7_days()
+
+    # Now commit/push if the generated files changed
     changed = git_publish_if_changed(generated_at_utc)
+
     print(f"Exported rows: {row_count}")
     print(f"Generated at: {generated_at_utc}")
     print(f"Published: {changed}")
-
 
 if __name__ == "__main__":
     main()
