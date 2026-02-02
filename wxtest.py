@@ -77,6 +77,7 @@ metrics = {
     "insert_barometric": 0,
     "insert_network": 0,
     "skipped_inserts": 0,
+    "is_maintenance": 0,
     "errors": None
 }
 
@@ -104,10 +105,10 @@ def insert_if_changed(cursor, table, timestamp, data_dict):
             VALUES (%s, {placeholders})
         """
         cursor.execute(query, (timestamp,) + values)
-        logging.info(f"Inserted new data into {table} at {timestamp}")
+        logger.info(f"Inserted new data into {table} at {timestamp}")
         return True
     else:
-        logging.info(f"No change in {table} at {timestamp} — skipping insert.")
+        logger.info(f"No change in {table} at {timestamp} — skipping insert.")
         return False
 
 def sync_table_schema(cursor, table_name, data_dict):
@@ -129,9 +130,20 @@ def sync_table_schema(cursor, table_name, data_dict):
             alter_sql = f"ALTER TABLE {table_name} ADD COLUMN {key} {sql_type}"
             try:
                 cursor.execute(alter_sql)
-                logging.info(f"✅ Added column `{key}` to `{table_name}` as {sql_type}")
+                logger.info(f"✅ Added column `{key}` to `{table_name}` as {sql_type}")
             except Exception as e:
                 logging.error(f"❌ Failed to add column `{key}` to `{table_name}`: {e}")
+
+def get_maintenance_mode(cursor, station_id="default") -> int:
+    """
+    Read current maintenance mode (0 or 1) from weather_data.station_state.
+    """
+    cursor.execute(
+        "SELECT maintenance_mode FROM weather_data.station_state WHERE station_id=%s",
+        (station_id,),
+    )
+    row = cursor.fetchone()
+    return int(row[0]) if row else 0
 
 # === MAIN SCRIPT ===
 
@@ -151,9 +163,14 @@ try:
 
     with pymysql.connect(host=DB_HOST, user=DB_USER, password=DB_PASS, database=DB_NAME) as connection:
         with connection.cursor() as cursor:
-            
+            # Check Maintenance Mode current state
+            maintenance_mode = get_maintenance_mode(cursor, station_id="default")
+            metrics["is_maintenance"] = maintenance_mode
+            logger.info(f"Maintenance mode is {maintenance_mode}")
+
             # outdoor
             if outdoor:
+                outdoor["is_maintenance"] = maintenance_mode
                 sync_table_schema(cursor, 'outdoor_conditions', outdoor)
                 if insert_if_changed(cursor, 'outdoor_conditions', datetime.utcfromtimestamp(outdoor['ts']), outdoor):
                     metrics["insert_outdoor"] = 1
@@ -162,6 +179,7 @@ try:
 
             # indoor
             if indoor:
+                indoor["is_maintenance"] = maintenance_mode
                 sync_table_schema(cursor, 'indoor_conditions', indoor)
                 if insert_if_changed(cursor, 'indoor_conditions', datetime.utcfromtimestamp(indoor['ts']), indoor):
                     metrics["insert_indoor"] = 1
@@ -170,6 +188,7 @@ try:
 
             # baro
             if baro:
+                baro["is_maintenance"] = maintenance_mode
                 sync_table_schema(cursor, 'barometric_conditions', baro)
                 if insert_if_changed(cursor, 'barometric_conditions', datetime.utcfromtimestamp(baro['ts']), baro):
                     metrics["insert_barometric"] = 1
@@ -178,6 +197,7 @@ try:
 
             # network
             if network:
+                network["is_maintenance"] = maintenance_mode
                 sync_table_schema(cursor, 'network_status', network)
                 if insert_if_changed(cursor, 'network_status', datetime.utcfromtimestamp(network['ts']), network):
                     metrics["insert_network"] = 1
@@ -202,8 +222,8 @@ finally:
                     INSERT INTO system_health 
                     (timestamp_utc, api_success, db_success, insert_outdoor,
                      insert_indoor, insert_barometric, insert_network, skipped_inserts,
-                     errors)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                     is_maintenance, errors)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 """, (
                     timestamp,
                     metrics["api_success"],
@@ -213,6 +233,7 @@ finally:
                     metrics["insert_barometric"],
                     metrics["insert_network"],
                     metrics["skipped_inserts"],
+                    metrics["is_maintenance"],
                     metrics["errors"]
                 ))
             conn.commit()
