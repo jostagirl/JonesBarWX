@@ -2,7 +2,7 @@ import pymysql
 import requests
 import logging
 from logging.handlers import TimedRotatingFileHandler
-from datetime import datetime
+from datetime import datetime, timezone
 from dotenv import load_dotenv
 from pathlib import Path
 import os
@@ -172,7 +172,7 @@ try:
             if outdoor:
                 outdoor["is_maintenance"] = maintenance_mode
                 sync_table_schema(cursor, 'outdoor_conditions', outdoor)
-                if insert_if_changed(cursor, 'outdoor_conditions', datetime.utcfromtimestamp(outdoor['ts']), outdoor):
+                if insert_if_changed(cursor, 'outdoor_conditions', datetime.fromtimestamp(outdoor['ts'], timezone.utc), outdoor):
                     metrics["insert_outdoor"] = 1
                 else:
                     metrics["skipped_inserts"] += 1
@@ -181,7 +181,7 @@ try:
             if indoor:
                 indoor["is_maintenance"] = maintenance_mode
                 sync_table_schema(cursor, 'indoor_conditions', indoor)
-                if insert_if_changed(cursor, 'indoor_conditions', datetime.utcfromtimestamp(indoor['ts']), indoor):
+                if insert_if_changed(cursor, 'indoor_conditions', datetime.fromtimestamp(indoor['ts'], timezone.utc), indoor):
                     metrics["insert_indoor"] = 1
                 else:
                     metrics["skipped_inserts"] += 1
@@ -190,7 +190,7 @@ try:
             if baro:
                 baro["is_maintenance"] = maintenance_mode
                 sync_table_schema(cursor, 'barometric_conditions', baro)
-                if insert_if_changed(cursor, 'barometric_conditions', datetime.utcfromtimestamp(baro['ts']), baro):
+                if insert_if_changed(cursor, 'barometric_conditions', datetime.fromtimestamp(baro['ts'], timezone.utc), baro):
                     metrics["insert_barometric"] = 1
                 else:
                     metrics["skipped_inserts"] += 1
@@ -199,7 +199,7 @@ try:
             if network:
                 network["is_maintenance"] = maintenance_mode
                 sync_table_schema(cursor, 'network_status', network)
-                if insert_if_changed(cursor, 'network_status', datetime.utcfromtimestamp(network['ts']), network):
+                if insert_if_changed(cursor, 'network_status', datetime.fromtimestamp(network['ts'], timezone.utc), network):
                     metrics["insert_network"] = 1
                 else:
                     metrics["skipped_inserts"] += 1
@@ -213,7 +213,7 @@ except Exception as e:
 
 finally:
     # duration_ms = int((time.time() - start_time) * 1000)
-    timestamp = datetime.utcnow()
+    timestamp = datetime.now(timezone.utc)
 
     try:
         with pymysql.connect(host=DB_HOST, user=DB_USER, password=DB_PASS, database=DB_NAME) as conn:
