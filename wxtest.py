@@ -144,67 +144,70 @@ def get_maintenance_mode(cursor, station_id="default") -> int:
     )
     row = cursor.fetchone()
     return int(row[0]) if row else 0
+    
+def fetch_sensor_payload():
+    try:
+        response = requests.get(API_URL, headers=headers, timeout=10)
+        response.raise_for_status()
+        api_data = response.json()
+        return api_data.get("sensors", [])
+    except requests.RequestException as e:
+        logging.error(f"API request failed: {e}")
+        raise
+
 
 # === MAIN SCRIPT ===
 
 start_time = time.time()
 
 try:
-    response = requests.get(API_URL, headers=headers)
-    response.raise_for_status()
-    api_data = response.json()
-    sensors = api_data.get('sensors', [])
-    metrics['api_success'] = 1
+    sensors = fetch_sensor_payload()
 
     outdoor = get_sensor_data(sensors, 43)
     indoor = get_sensor_data(sensors, 243)
     baro = get_sensor_data(sensors, 242)
     network = get_sensor_data(sensors, 504)
 
-    with pymysql.connect(host=DB_HOST, user=DB_USER, password=DB_PASS, database=DB_NAME) as connection:
+    with pymysql.connect(
+        host=DB_HOST,
+        user=DB_USER,
+        password=DB_PASS,
+        database=DB_NAME
+    ) as connection:
+
         with connection.cursor() as cursor:
+            
             # Check Maintenance Mode current state
             maintenance_mode = get_maintenance_mode(cursor, station_id="default")
             metrics["is_maintenance"] = maintenance_mode
             logger.info(f"Maintenance mode is {maintenance_mode}")
+            
+            sensor_configs = [
+                ("outdoor_conditions", outdoor, "insert_outdoor"),
+                ("indoor_conditions", indoor, "insert_indoor"),
+                ("barometric_conditions", baro, "insert_barometric"),
+                ("network_status", network, "insert_network"),
+            ]
 
-            # outdoor
-            if outdoor:
-                outdoor["is_maintenance"] = maintenance_mode
-                sync_table_schema(cursor, 'outdoor_conditions', outdoor)
-                if insert_if_changed(cursor, 'outdoor_conditions', datetime.fromtimestamp(outdoor['ts'], timezone.utc), outdoor):
-                    metrics["insert_outdoor"] = 1
-                else:
-                    metrics["skipped_inserts"] += 1
+            for table_name, sensor_data, metric_key in sensor_configs:
+                if sensor_data:
+                    sensor_data["is_maintenance"] = maintenance_mode
+                    sync_table_schema(cursor, table_name, sensor_data)
 
-            # indoor
-            if indoor:
-                indoor["is_maintenance"] = maintenance_mode
-                sync_table_schema(cursor, 'indoor_conditions', indoor)
-                if insert_if_changed(cursor, 'indoor_conditions', datetime.fromtimestamp(indoor['ts'], timezone.utc), indoor):
-                    metrics["insert_indoor"] = 1
-                else:
-                    metrics["skipped_inserts"] += 1
+                    inserted = insert_if_changed(
+                        cursor,
+                        table_name,
+                        datetime.fromtimestamp(sensor_data['ts'], timezone.utc),
+                        sensor_data
+                    )
 
-            # baro
-            if baro:
-                baro["is_maintenance"] = maintenance_mode
-                sync_table_schema(cursor, 'barometric_conditions', baro)
-                if insert_if_changed(cursor, 'barometric_conditions', datetime.fromtimestamp(baro['ts'], timezone.utc), baro):
-                    metrics["insert_barometric"] = 1
-                else:
-                    metrics["skipped_inserts"] += 1
-
-            # network
-            if network:
-                network["is_maintenance"] = maintenance_mode
-                sync_table_schema(cursor, 'network_status', network)
-                if insert_if_changed(cursor, 'network_status', datetime.fromtimestamp(network['ts'], timezone.utc), network):
-                    metrics["insert_network"] = 1
-                else:
-                    metrics["skipped_inserts"] += 1
+                    if inserted:
+                        metrics[metric_key] = 1
+                    else:
+                        metrics["skipped_inserts"] += 1
 
             metrics["db_success"] = 1
+            
         connection.commit()
 
 except Exception as e:
