@@ -1,3 +1,21 @@
+"""
+Weather Data Ingestion Script
+
+This script retrieves current sensor data from the Davis WeatherLink API
+and stores it in a local MariaDB database for long-term retention.
+
+Because the Davis API does not provide permanent historical storage,
+this script polls the API at scheduled intervals and persists the data locally.
+
+During ingestion:
+- A maintenance mode flag is applied to all sensor records if the station is marked offline.
+- Tables are auto-synchronized to accommodate new sensor fields.
+- Inserts are skipped when no data has changed to reduce redundant writes.
+- System health metrics are recorded on every run (success or failure).
+
+This script is designed to run via scheduler (cron) but can also be executed manually.
+"""
+
 import pymysql
 import requests
 import logging
@@ -162,6 +180,8 @@ start_time = time.time()
 
 try:
     sensors = fetch_sensor_payload()
+    metrics["api_success"] = 1
+
 
     outdoor = get_sensor_data(sensors, 43)
     indoor = get_sensor_data(sensors, 243)
