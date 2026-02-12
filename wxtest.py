@@ -195,7 +195,7 @@ try:
                     sync_table_schema(cursor, table_name, sensor_data)
 
                     #TEMP DEBUG LINE
-                    logger.info(f"{table_name} keys: {sorted(sensor_data.keys())}")
+                    # logger.info(f"{table_name} keys: {sorted(sensor_data.keys())}")
                     #
                     
                     inserted = insert_if_changed(
