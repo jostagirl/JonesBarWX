@@ -194,6 +194,10 @@ try:
                     sensor_data["is_maintenance"] = maintenance_mode
                     sync_table_schema(cursor, table_name, sensor_data)
 
+                    #TEMP DEBUG LINE
+                    logger.info(f"{table_name} keys: {sorted(sensor_data.keys())}")
+                    #
+                    
                     inserted = insert_if_changed(
                         cursor,
                         table_name,
