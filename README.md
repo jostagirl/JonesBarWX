@@ -1,5 +1,9 @@
 # JonesBarWX — Weather Station Logger
 
+**Related documents:**
+- [`REBUILD.md`](REBUILD.md) — complete from-scratch rebuild guide (OS, database, services, credentials, everything)
+- [`SERVICES.md`](SERVICES.md) — all systemd unit file contents and the Alloy config verbatim
+
 Personal weather data collection system running on a headless Raspberry Pi 4 (hostname: `rapi4`) on the home network.
 
 Pulls live data from a Davis WeatherLink station, stores it in a local MariaDB database, publishes a public JSON/CSV data file to GitHub Pages, and reports system health to Grafana Cloud.
