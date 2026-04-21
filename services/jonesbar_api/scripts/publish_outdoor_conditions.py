@@ -1,9 +1,12 @@
 
 #!/usr/bin/env python3
 import os
+import sys
 import json
 import csv
+import time
 import subprocess
+import urllib.request
 from datetime import datetime, timezone,date
 
 import pymysql
@@ -25,6 +28,52 @@ def run(cmd, cwd=None):
             f"Command failed: {' '.join(cmd)}\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
         )
     return result.stdout.strip()
+
+
+def run_with_retry(cmd, cwd=None, attempts=3, initial_delay=2.0):
+    # Use for network-touching git commands (fetch, push) to ride out transient failures.
+    last_err = None
+    for i in range(attempts):
+        try:
+            return run(cmd, cwd=cwd)
+        except RuntimeError as e:
+            last_err = e
+            if i < attempts - 1:
+                delay = initial_delay * (2 ** i)
+                print(f"[{cmd[0]} {cmd[1] if len(cmd) > 1 else ''}] attempt {i+1}/{attempts} failed; retrying in {delay:.0f}s", file=sys.stderr)
+                time.sleep(delay)
+    raise last_err
+
+
+def ensure_clean_public_repo():
+    # Public repo is a pure publisher — working tree is disposable.
+    # Abort any interrupted rebase/merge, then hard-reset to match origin.
+    if not os.path.isdir(os.path.join(PUBLIC_REPO_DIR, ".git")):
+        raise RuntimeError(f"Not a git repo: {PUBLIC_REPO_DIR}")
+
+    git_dir = os.path.join(PUBLIC_REPO_DIR, ".git")
+    for state_dir in ("rebase-merge", "rebase-apply"):
+        if os.path.isdir(os.path.join(git_dir, state_dir)):
+            print(f"Interrupted rebase detected ({state_dir}); aborting.")
+            try:
+                run(["git", "rebase", "--abort"], cwd=PUBLIC_REPO_DIR)
+            except RuntimeError as e:
+                print(f"rebase --abort failed ({e}); continuing with hard reset.", file=sys.stderr)
+            break
+    if os.path.isfile(os.path.join(git_dir, "MERGE_HEAD")):
+        print("Interrupted merge detected; aborting.")
+        try:
+            run(["git", "merge", "--abort"], cwd=PUBLIC_REPO_DIR)
+        except RuntimeError as e:
+            print(f"merge --abort failed ({e}); continuing with hard reset.", file=sys.stderr)
+
+    branch = run(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=PUBLIC_REPO_DIR)
+    if branch == "HEAD":
+        raise RuntimeError("Public repo is in detached HEAD state; refusing to auto-recover.")
+
+    run_with_retry(["git", "fetch", "origin", branch], cwd=PUBLIC_REPO_DIR)
+    run(["git", "reset", "--hard", f"origin/{branch}"], cwd=PUBLIC_REPO_DIR)
+    run(["git", "clean", "-fd"], cwd=PUBLIC_REPO_DIR)
 
 
 def get_db_connection():
@@ -145,23 +194,31 @@ def git_publish_if_changed(generated_at_utc):
 
     msg = f"Publish outdoor_conditions last 7 days ({generated_at_utc})"
     run(["git", "commit", "-m", msg], cwd=PUBLIC_REPO_DIR)
-    run(["git", "push"], cwd=PUBLIC_REPO_DIR)
+    run_with_retry(["git", "push"], cwd=PUBLIC_REPO_DIR)
     return True
 
 
+def _heartbeat(url):
+    if not url:
+        return
+    try:
+        urllib.request.urlopen(url, timeout=10).read()
+    except Exception as e:
+        print(f"Publish heartbeat ping failed (non-fatal): {e}", file=sys.stderr)
+
+
 def main():
-    # Sync the public repo first (must be clean before rebase)
-    run(["git", "pull", "--rebase"], cwd=PUBLIC_REPO_DIR)
-
-    # Generate the files after we are up to date
-    row_count, generated_at_utc = export_outdoor_conditions_last_7_days()
-
-    # Now commit/push if the generated files changed
-    changed = git_publish_if_changed(generated_at_utc)
-
-    print(f"Exported rows: {row_count}")
-    print(f"Generated at: {generated_at_utc}")
-    print(f"Published: {changed}")
+    try:
+        ensure_clean_public_repo()
+        row_count, generated_at_utc = export_outdoor_conditions_last_7_days()
+        changed = git_publish_if_changed(generated_at_utc)
+        print(f"Exported rows: {row_count}")
+        print(f"Generated at: {generated_at_utc}")
+        print(f"Published: {changed}")
+        _heartbeat(os.getenv("PUBLISH_OK_URL", "").strip())
+    except Exception as e:
+        print(f"ERROR: publish_outdoor_conditions failed: {e}", file=sys.stderr)
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

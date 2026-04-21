@@ -9,6 +9,8 @@ logs/
 mysqlDump/
 
 # Ignore Python bytecode
+__pycache__/
+*.pyc
 
 
 # Optional: ignore local database files or editor configs

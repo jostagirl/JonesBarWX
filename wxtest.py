@@ -19,6 +19,7 @@ This script is designed to run via scheduler (cron) but can also be executed man
 import pymysql
 import requests
 import logging
+import sys
 from logging.handlers import TimedRotatingFileHandler
 from datetime import datetime, timezone
 from dotenv import load_dotenv
@@ -37,6 +38,7 @@ DB_NAME = os.getenv("DB_NAME")
 API_KEY = os.getenv("API_KEY", "").strip()
 API_SECRET = os.getenv("API_SECRET", "").strip()
 STATION_ID = os.getenv("STATION_ID", "").strip()
+INGEST_OK_URL = os.getenv("INGEST_OK_URL", "").strip()
 
 API_URL = f'https://api.weatherlink.com/v2/current/{STATION_ID}?api-key={API_KEY}'
 headers = {'X-Api-Secret': API_SECRET}
@@ -177,6 +179,7 @@ def fetch_sensor_payload():
 # === MAIN SCRIPT ===
 
 start_time = time.time()
+exit_code = 0
 
 try:
     sensors = fetch_sensor_payload()
@@ -237,6 +240,7 @@ try:
 except Exception as e:
     metrics["errors"] = str(e)[:250]
     logging.error(f"Error: {e}")
+    exit_code = 1
 
 finally:
     # duration_ms = int((time.time() - start_time) * 1000)
@@ -266,3 +270,12 @@ finally:
             conn.commit()
     except Exception as e2:
         logging.error(f"Failed to write to system_health table: {e2}")
+        exit_code = 1
+
+if exit_code == 0 and INGEST_OK_URL:
+    try:
+        requests.get(INGEST_OK_URL, timeout=10)
+    except Exception as hb_err:
+        logging.warning(f"Ingest heartbeat ping failed (non-fatal): {hb_err}")
+
+sys.exit(exit_code)
